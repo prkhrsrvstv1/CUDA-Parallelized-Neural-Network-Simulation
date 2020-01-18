@@ -12,7 +12,9 @@
 #define N_THREADS_PER_BLOCK 1024
 
 typedef struct {
-  double dt, epsilon, vth, vreset, a, b;
+  int All_sync_count1[NL_max-NL_min+1][Ng_max];
+  int All_sync_count2[NL_max-NL_min+1];
+  double dt, epsilon, vth, vreset, a, b, tol;
   long Nstep;
 } global_mem;
 
@@ -42,9 +44,9 @@ __global__ void simulate(simulation_params *params, simulation_result *results, 
   results[threadId].nL_break = params[threadId].nL_break;
   results[threadId].ig = params[threadId].ig;
   
-  int i, k kk, t_old, t_new;
+  int i, k kk, t_old, t_new, InSync_neurons;
   int spike_count[N], spike[N], push_up_flag[N];
-  double f0, f1, f2, f3, f4;
+  double f0, f1, f2, f3, f4, tspike_diff1, tspike_diff2;
   double v_old[N], v_new[N], push_up_amnt[N];
   double v_initnew[20]= {0.00778832, 0.355919, 0.426307, 0.183062,
                          0.272762, 0.532633, 0.339171, 0.242097,
@@ -151,24 +153,25 @@ __global__ void simulate(simulation_params *params, simulation_result *results, 
   // Count number of iL-networks where all neurons fire in sync
 
   InSync_neurons = 1;
-  for(kk=1;kk<N;kk++) {
-    tspike_diff1 = fabs(tspike[0][spike_count[0]-11]-tspike[kk][spike_count[kk]-11]);
-    tspike_diff2 = fabs(tspike[0][spike_count[0]-10]-tspike[kk][spike_count[kk]-10]);
-    if(tspike_diff1 < tol && tspike_diff2 < tol) {
+  for(kk = 1; kk < N; kk++) {
+    // TOASK: What are these "10" and "11"?
+    tspike_diff1 = fabs(results[threadId].tspike[0][spike_count[0] - 11] -
+                        results[threadId].tspike[kk][spike_count[kk] - 11]);
+    tspike_diff2 = fabs(results[threadId].tspike[0][spike_count[0] - 10] -
+                        results[threadId].tspike[kk][spike_count[kk] - 10]);
+    if(tspike_diff1 < g_mem->tol && tspike_diff2 < g_mem->tol) {
       InSync_neurons++; // count number of neurons firing in sync for the chosen initial condition
-      //printf("%d \n",InSync_neurons);
     }
   }
   if(InSync_neurons == N) {
-    //All_sync_count1[iL][ig]++; // count number of ic's that yield All-sync for iL-iG network.
-    All_sync_count2[iL]++;
+    //g_mem->All_sync_count1[params[threadId].iL][params[threadId].ig]++; // count number of ic's that yield All-sync for iL-iG network.
+    g_mem->All_sync_count2[params[threadId].iL]++;
     //printf("Number of instances of full sync = %d \n",All_sync_count2[iL]);
     //fprintf(all_sync,"Number of instances of full sync = %d \n",All_sync_count2[0]);
   }
 
-
+  // TOASK: What is happening here?
   // Write spike time on file
-
   for(kk=0;kk<N;kk++) {
     tmp1 = 10000*tspike[kk][spike_count[kk]-7];
     tmp2 = 10000*tspike[kk][spike_count[kk]-8];
