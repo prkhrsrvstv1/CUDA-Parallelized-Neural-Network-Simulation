@@ -72,7 +72,7 @@ __global__ void simulate(simulation_params *params, simulation_result *results, 
 
   for(k = 0; k < N; k++){
     for(i = 0; i < MAXCOL; i++){
-			results[threadId].tspike[k][i] = 0; // counts the spike time of "i_th" spike of neuron number "k"
+      results[threadId].tspike[k][i] = 0; // counts the spike time of "i_th" spike of neuron number "k"
     }
   }
 
