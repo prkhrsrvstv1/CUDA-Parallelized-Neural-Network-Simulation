@@ -85,7 +85,7 @@ int main(){
 	ISIfile = fopen("fISI.txt","w");
 	spike_time = fopen("fspike_time.txt","w");
 	all_sync = fopen("fall_sync.txt","w");
-        connected_graphID = fopen("fconnected_graphID","w");
+	connected_graphID = fopen("fconnected_graphID","w");
 	
 	printf("Nstep = %lu\n",Nstep);
 	
@@ -204,7 +204,7 @@ int main(){
 
 		for(k=0;k<N;k++){
 			for(i=0;i<MAXCOL;i++){
-			tspike[k][i] = 0;  // counts the spike time of "i_th" spike of neuron number "k" 
+			tspike[k][i] = 0; // counts the spike time of "i_th" spike of neuron number "k" 
 			}
 		}
 
