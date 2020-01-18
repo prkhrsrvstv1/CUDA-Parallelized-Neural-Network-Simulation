@@ -125,7 +125,7 @@ int main(){
 	{
 	
 
-	printf("iL = %d \t nl_break= %d \t ig = %d %Ng_max= %d \n",iL, nL_break,ig,Ng_max);
+	printf("iL = %d \t nl_break= %d \t ig = %d \t Ng_max= %d \n",iL, nL_break,ig,Ng_max);
 
 	// Generate the network by randomly removing iL synapses.
 
@@ -199,7 +199,7 @@ int main(){
 		// initialize arrays
 		for(k=0;k<N;k++)
 		{
-		spike_count[k] = 0; //keeps a count of the number spikes in neuron k so far.
+		spike_count[k] = 0; // keeps a count of the number spikes in neuron k so far.
 		}
 
 		for(k=0;k<N;k++){
