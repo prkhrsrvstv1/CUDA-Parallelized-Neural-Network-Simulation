@@ -54,6 +54,7 @@ __global__ void simulate(simulation_params *params, simulation_result *results, 
 
   // Generate initial state
   for(kk = 0; kk < N; kk++) {
+    /* Change rand() to cuRAND:: */
     results[threadId].v_init[kk] = rand() % (g_mem->vth*1000);
     results[threadId].v_init[kk] = results[threadId].v_init[kk] / 100000;
     v_old[kk] = results[threadId].v_init[kk];
@@ -141,7 +142,7 @@ __global__ void simulate(simulation_params *params, simulation_result *results, 
     for(kk = 0; kk < N; kk++) {
       v_old[kk] = v_new[kk];
     }
-    
+
     // Advance time
     t_old = t_new;
 
