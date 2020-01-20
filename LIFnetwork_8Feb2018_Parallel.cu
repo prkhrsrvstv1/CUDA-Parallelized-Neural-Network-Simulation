@@ -191,32 +191,32 @@ __global__ void simulate(simulation_params *params, simulation_result *results, 
 
 void synaptic_weighs_connected_network(double w[][N], int nL) {
   int i, j, num_removed;
-	int degree[N]; // degree : number of neurons this neuron has synapses with
-	// Create a completely connected network
-	for(i = 0; i < N; ++i) {
-		for(j = 0; j < N; ++j) {
-			w[i][j] = 1;
-		}
-	}
-	// Remove self-connections
-	for(int i = 0; i < N; ++i) {
-		w[i][i] = 0;
-		degree[i] = N-1;
-	}
-	// Keep removing synapses till nL aren't removed
-	num_removed = 0;
-	while(num_removed < nL) {
-		i = rand() % N;
-		j = rand() % N;
-		// If there is a synapse between neurons i & j and connectivity can be ensured, remove it
-		if(w[i][j] != 0 && degree[i] > 1 && degree[j] > 1) {
-			w[i][j] = 0;
-			w[j][i] = 0;
-			--degree[i];
-			--degree[j];
-			++num_removed;
-		}
-	}
+  int degree[N]; // degree : number of neurons this neuron has synapses with
+  // Create a completely connected network
+  for(i = 0; i < N; ++i) {
+    for(j = 0; j < N; ++j) {
+      w[i][j] = 1;
+    }
+  }
+  // Remove self-connections
+  for(int i = 0; i < N; ++i) {
+    w[i][i] = 0;
+    degree[i] = N-1;
+  }
+  // Keep removing synapses till nL aren't removed
+  num_removed = 0;
+  while(num_removed < nL) {
+    i = rand() % N;
+    j = rand() % N;
+    // If there is a synapse between neurons i & j and connectivity can be ensured, remove it
+    if(w[i][j] != 0 && degree[i] > 1 && degree[j] > 1) {
+      w[i][j] = 0;
+      w[j][i] = 0;
+      --degree[i];
+      --degree[j];
+      ++num_removed;
+    }
+  }
 }
 
 int main() {
