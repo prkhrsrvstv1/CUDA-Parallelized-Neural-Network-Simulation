@@ -4,12 +4,15 @@
 #include <stdlib.h>
 
 #define N 20
-#define MXCOL 10000
+#define MAXCOL 10000
 #define NL_min 0
 #define NL_max 0
 #define NL_step 1
 #define Ng_max 1
 #define N_THREADS_PER_BLOCK 1024
+#define N_BLOCKS_X 65535
+#define N_BLOCKS_Y 65535
+#define N_BLOCKS_z 65535
 
 typedef struct {
   int All_sync_count1[NL_max-NL_min+1][Ng_max];
@@ -29,7 +32,8 @@ typedef struct {
   double tspike[N][MAXCOL];
 } simulation_result;
 
-int synaptic_weighs_connected_network(double w[][N], int nL);
+/* creates a network (adj. matrix) of N neurons in "w" with "nL" synapses missing */
+void synaptic_weighs_connected_network(double w[][N], int nL);
 
 __global__ void simulate(simulation_params *params, simulation_result *results, global_mem *g_mem) {
   // "threadId" is used as an index into the arrays "params" and "results".
@@ -173,25 +177,49 @@ __global__ void simulate(simulation_params *params, simulation_result *results, 
   // TOASK: What is happening here?
   // Write spike time on file
   for(kk=0;kk<N;kk++) {
-    tmp1 = 10000*tspike[kk][spike_count[kk]-7];
-    tmp2 = 10000*tspike[kk][spike_count[kk]-8];
-    tmp3 = 10000*tspike[kk][spike_count[kk]-9];
-    tmp4 = 10000*tspike[kk][spike_count[kk]-10];
-    tmp5 = 10000*tspike[kk][spike_count[kk]-11];
-    tmp6 = 10000*tspike[kk][spike_count[kk]-12];
-    tmp7 = 10000*tspike[kk][spike_count[kk]-13];
+    tmp1 = 10000*results[threadId].tspike[kk][spike_count[kk]-7];
+    tmp2 = 10000*results[threadId].tspike[kk][spike_count[kk]-8];
+    tmp3 = 10000*results[threadId].tspike[kk][spike_count[kk]-9];
+    tmp4 = 10000*results[threadId].tspike[kk][spike_count[kk]-10];
+    tmp5 = 10000*results[threadId].tspike[kk][spike_count[kk]-11];
+    tmp6 = 10000*results[threadId].tspike[kk][spike_count[kk]-12];
+    tmp7 = 10000*results[threadId].tspike[kk][spike_count[kk]-13];
   //fprintf(spike_time,"%d \t %lu \t %lu \t %lu \t %lu \t %lu \t \%d \n",kk,tmp1,tmp2,tmp3,tmp4,tmp5,flag_unconnctd_graph);
                       //fprintf(spike_time,"%d \t %lu \t %lu \t %lu \t %lu \t %lu \t %lu \t %lu \n",kk,tmp1,tmp2,tmp3,tmp4,tmp5,tmp6,tmp7);
   }
-  for(kk=0;kk<N;kk++) {
-    for(i=2;i<=spike_count[kk];i++)	{	
-      fprintf(spike_time,"%f  ",tspike[kk][i-1]);
-    }
-    fprintf(spike_time,"\n");
-  }
+}
+
+void synaptic_weighs_connected_network(double w[][N], int nL) {
+  int i, j, num_removed;
+	int degree[N]; // degree : number of neurons this neuron has synapses with
+	// Create a completely connected network
+	for(i = 0; i < N; ++i) {
+		for(j = 0; j < N; ++j) {
+			w[i][j] = 1;
+		}
+	}
+	// Remove self-connections
+	for(int i = 0; i < N; ++i) {
+		w[i][i] = 0;
+		degree[i] = N-1;
+	}
+	// Keep removing synapses till nL aren't removed
+	num_removed = 0;
+	while(num_removed < nL) {
+		i = rand() % N;
+		j = rand() % N;
+		// If there is a synapse between neurons i & j and connectivity can be ensured, remove it
+		if(w[i][j] != 0 && degree[i] > 1 && degree[j] > 1) {
+			w[i][j] = 0;
+			w[j][i] = 0;
+			--degree[i];
+			--degree[j];
+			++num_removed;
+		}
+	}
 }
 
 int main() {
-  /* TODO: Write driver code including the iL, ig and ic loops */
+  
   return 0;
 }
