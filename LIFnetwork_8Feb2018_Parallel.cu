@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define N 20
+#define N 2
 #define MAXCOL 10000
 #define NL_min 0
 #define NL_max 0
@@ -33,15 +33,25 @@ typedef struct {
 } simulation_result;
 
 /* creates a network (adj. matrix) of N neurons in "w" with "nL" synapses missing */
-void synaptic_weighs_connected_network(double w[][N], int nL);
+__device__ int synaptic_weights_connected_network(double w[][N], int nL);
+
+/* Create weight matrices in GPU memory */
+__global__ void store_weights(double w[(NL_max - NL_min) * Ng_max / NL_step][N][N]) {
+  int threadId = blockIdx.x * blockDim.x + threadIdx.x;
+  int flag_connected;
+  int nL_break = NL_min + threadId * NL_step;
+  for(int i = 0; i < Ng_max; ++i) {
+    flag_connected = 0;
+    do {
+      flag_connected = synaptic_weights_connected_network(w[threadId * Ng_max + i], nL_break)
+    } while(flag_connected == 0);
+  }
+}
 
 __global__ void simulate(simulation_params *params, simulation_result *results, global_mem *g_mem) {
   // "threadId" is used as an index into the arrays "params" and "results".
   // Everything that was being written to a file is now returned in a struct.
-  int blockId = blockIdx.z * gridDim.x * gridDim.y + 
-                blockIdx.y * gridDim.x + 
-                blockIdx.x;
-  int threadId = blockId * blockDim.x + threadIdx.x;
+  int threadId = blockIdx.x * blockDim.x + threadIdx.x;
   
   results[threadId].ic = params[threadId].ic;
   results[threadId].iL = params[threadId].iL;
@@ -62,7 +72,7 @@ __global__ void simulate(simulation_params *params, simulation_result *results, 
   for(kk = 0; kk < N; kk++) {
     /* Change rand() to cuRAND:: */
     results[threadId].v_init[kk] = rand() % (g_mem->vth*1000);
-    results[threadId].v_init[kk] = results[threadId].v_init[kk] / 100000;
+    results[threadId].v_init[kk] = results[threadId].v_init[kk] / 1000;
     v_old[kk] = results[threadId].v_init[kk];
   }
   
@@ -189,37 +199,139 @@ __global__ void simulate(simulation_params *params, simulation_result *results, 
   }
 }
 
-void synaptic_weighs_connected_network(double w[][N], int nL) {
-  int i, j, num_removed;
-  int degree[N]; // degree : number of neurons this neuron has synapses with
-  // Create a completely connected network
-  for(i = 0; i < N; ++i) {
-    for(j = 0; j < N; ++j) {
-      w[i][j] = 1;
+__device__ int synaptic_weights_connected_network(double w[][N], int nL) {
+
+	int i,j,k,kk,neuron1,neuron2;
+	double w_flag[N][N];
+	int syn_to_remove, tot_syn_removed ;
+	int connected_nodes[N] ;
+	int current_ptr, endptr, parent_node;
+	int flag_connected = 0 ;
+	int flag_already_connected;
+
+	FILE *debug;
+	debug = fopen("fdebug.txt","w");
+
+	// GENERATE AN ALL-TO-ALL NETWORK ************************************************************************
+	for(i = 0; i < N; i++) {
+    for(j = 0; j < N; j++) {
+      if(j != i){
+        w[i][j] = 1;
+      }
+      else if(j == i){
+        w[i][j] =0;
+      } 
     }
+	}
+
+	// REMOVE SYNAPSES FROM ABOVE ALL-TO-ALL NETWORK *********************************************************
+
+	syn_to_remove = nL;
+	tot_syn_removed = 0;
+
+	// Initialize array w_flag
+	for(k = 0; k < N; k++) {
+		for(kk = 0; kk < N; kk++) {
+		  w_flag[k][kk] = 0; // w_flag[k][kk] is changed to value 1, if the synapse between k --> kk is removed
+		}
+	}
+
+	// Generate a new network by removing synapses randomly
+	while(tot_syn_removed < syn_to_remove) {
+		int neuron1 = rand() % N;
+		int neuron2 = rand() % N;
+		if(neuron1 != neuron2) {
+			if(w_flag[neuron1][neuron2] == 0) { // synapse between these two neurons has not been changed.
+				w_flag[neuron1][neuron2] = 1;
+				w_flag[neuron2][neuron1] = 1;
+				w[neuron1][neuron2] = 0;
+				w[neuron2][neuron1] = w[neuron1][neuron2];
+				tot_syn_removed++;
+
+			}
+		}
+		
+	}
+
+
+	// Is the network generated above connected ? /////////////
+
+
+	//w[0][0] = 0; w[0][1] = 1; w[0][2] = 1; w[0][3] = 0; w[0][4] = 1; w[0][5] = 0;
+
+	//w[1][0] = w[0][1]; w[1][1] = 0 ; w[1][2] = 1 ; w[1][3] = 0; w[1][4] = 0; w[1][5] = 1;
+
+	//w[2][0] = w[0][2]; w[2][1] = w[1][2] ; w[2][2] = 0 ; w[2][3] = 0; w[2][4] = 1; w[2][5] = 0;
+
+	//w[3][0] = w[0][3]; w[3][1] = w[1][3] ; w[3][2] = w[2][3] ; w[3][3] = 0; w[3][4] = 0; w[3][5] = 0;
+
+	//w[4][0] = w[0][4]; w[4][1] = w[1][4] ; w[4][2] = w[2][4] ; w[4][3] = w[3][4]; w[4][4] = 0; w[4][5] = 1;
+
+	//w[5][0] = w[0][5]; w[5][1] = w[1][5] ; w[5][2] = w[2][5] ; w[5][3] = w[3][5]; w[5][4] = w[4][5]; w[5][5] = 0;
+
+	//w[0][0] = 0 ; w[0][1] = 0; w[0][2] = 1; w[0][3]=0;
+	//w[1][0] = w[0][1] ; w[1][1] = 0;  w[1][2] = 1; w[1][3] =0;
+	//w[2][0]=w[0][2] ; w[2][1]=w[1][2]; w[2][2] =0; w[2][3] = 1;
+	//w[3][0] = w[0][3] ; w[3][1] = w[1][3] ; w[3][2] = w[2][3] ; w[3][3]=0 ;
+
+ 	for(k = 0; k < N; k++) {
+		for(kk = 0; kk < N; kk++) {
+  		w_flag[k][kk] = 0; // w_flag[k][kk] is changed to value 1, if the synapse between k --> kk is removed
+		}
+	}
+
+  connected_nodes[0] = 0;
+	for(i=1;i<N;i++) {
+		connected_nodes[i] = -1;
   }
-  // Remove self-connections
-  for(int i = 0; i < N; ++i) {
-    w[i][i] = 0;
-    degree[i] = N-1;
-  }
-  // Keep removing synapses till nL aren't removed
-  num_removed = 0;
-  while(num_removed < nL) {
-    i = rand() % N;
-    j = rand() % N;
-    // If there is a synapse between neurons i & j and connectivity can be ensured, remove it
-    if(w[i][j] != 0 && degree[i] > 1 && degree[j] > 1) {
-      w[i][j] = 0;
-      w[j][i] = 0;
-      --degree[i];
-      --degree[j];
-      ++num_removed;
-    }
-  }
-}
+	current_ptr = 0;
+	endptr = 0 ;  // points towards the last non-zero element in the connected_nodes array
+
+	while(current_ptr <= endptr) {
+
+	  for(i = 0; i < N; i++) {
+      parent_node = connected_nodes[current_ptr] ;
+
+		  flag_already_connected = 0 ;
+
+		  for(j = 0; j <= endptr; j++) {
+        if(connected_nodes[j] == i) {
+          flag_already_connected = 1;
+        }
+		  }
+
+		  if(w[parent_node][i] == 1) {
+			  if(w_flag[parent_node][i] == 0) {
+          if(flag_already_connected ==0) {
+            endptr ++ ;
+            connected_nodes[endptr] = i ; // stores node numbers connected to parent_node
+
+            w_flag[parent_node][i] = 1 ;
+            w_flag[i][parent_node] = w_flag[parent_node][i] ; //links already visited
+				 
+				    //printf("i= %d \t endptr= %d \t current_ptr= %d \t connected_nodes[endptr] = %d \n",i, endptr,current_ptr,connected_nodes[endptr]);
+          }
+        }
+      }
+      
+      if (i == N-1) {
+        current_ptr++ ;
+      }	
+  	}
+	}
+
+		
+	if(endptr == N-1) {
+		flag_connected = 1 ;
+	}
+
+	return flag_connected;
+
+} // end of function
 
 int main() {
-  
+  double *w[N][N];
+  cudaMalloc(&w, (NL_max - NL_min) * Ng_max / NL_step * N * N * sizeof(double));
+  store_weights<<<1, (NL_max - NL_min) / NL_step>>>(w);
   return 0;
 }
