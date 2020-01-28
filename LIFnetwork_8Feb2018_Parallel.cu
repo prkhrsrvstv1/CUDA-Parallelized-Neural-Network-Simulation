@@ -5,14 +5,13 @@
 
 #define N 2
 #define MAXCOL 10000
+#define Nic 1
 #define NL_min 0
 #define NL_max 0
 #define NL_step 1
 #define Ng_max 1
-#define N_THREADS_PER_BLOCK 1024
-#define N_BLOCKS_X 65535
-#define N_BLOCKS_Y 65535
-#define N_BLOCKS_z 65535
+#define N_THREADS_PER_BLOCK 1
+#define N_BLOCKS 1
 
 typedef struct {
   int All_sync_count1[NL_max-NL_min+1][Ng_max];
@@ -22,8 +21,7 @@ typedef struct {
 } global_mem;
 
 typedef struct {
-  int iL, nL_break, ig, ic;
-  double w[N][N];
+  int iL, ig, ic;
 } simulation_params;
 
 typedef struct {
@@ -38,17 +36,17 @@ __device__ int synaptic_weights_connected_network(double w[][N], int nL);
 /* Create weight matrices in GPU memory */
 __global__ void store_weights(double w[(NL_max - NL_min) * Ng_max / NL_step][N][N]) {
   int threadId = blockIdx.x * blockDim.x + threadIdx.x;
-  int flag_connected;
   int nL_break = NL_min + threadId * NL_step;
+  int flag_connected;
   for(int i = 0; i < Ng_max; ++i) {
     flag_connected = 0;
     do {
-      flag_connected = synaptic_weights_connected_network(w[threadId * Ng_max + i], nL_break)
+      flag_connected = synaptic_weights_connected_network(w[threadId * Ng_max + i], nL_break);
     } while(flag_connected == 0);
   }
 }
 
-__global__ void simulate(simulation_params *params, simulation_result *results, global_mem *g_mem) {
+__global__ void simulate(simulation_params *params, simulation_result *results, global_mem *g_mem, double w[(NL_max - NL_min) * Ng_max / NL_step][N][N]) {
   // "threadId" is used as an index into the arrays "params" and "results".
   // Everything that was being written to a file is now returned in a struct.
   int threadId = blockIdx.x * blockDim.x + threadIdx.x;
@@ -120,7 +118,7 @@ __global__ void simulate(simulation_params *params, simulation_result *results, 
       for(k = 0; k < N; k++) {	
         if(k != kk && spike[kk] != 1 && spike[k]==1) {
           push_up_amnt[kk] = push_up_amnt[kk] +
-                             (g_mem->epsilon) * params.w[kk][k] * spike[k];
+                             (g_mem->epsilon) * w[threadId % Nic][kk][k] * spike[k];
           push_up_flag[kk] = 1;
         }
       }
@@ -326,8 +324,43 @@ __device__ int synaptic_weights_connected_network(double w[][N], int nL) {
 }
 
 int main() {
-  double *w[N][N];
+  
+  int num_simulations = (NL_max - NL_min) * Ng_max / NL_step * Nic;
+  int tmax = 20;
+
+  // Initialize the weight matrices in the GPU memory
+  // void *w[(NL_max - NL_min) * Ng_max / NL_step][N][N];
+  void *w;
   cudaMalloc(&w, (NL_max - NL_min) * Ng_max / NL_step * N * N * sizeof(double));
   store_weights<<<1, (NL_max - NL_min) / NL_step>>>(w);
+
+  // Initialize the global GPU memory
+  global_mem g_mem;
+  global_mem *d_g_mem;
+  cudaMalloc(&d_g_mem, sizeof(global_mem));
+  g_mem.dt = 0.0002;
+  g_mem.epsilon = 0.01;
+  g_mem.vth = 0.8;
+  g_mem.vreset = 0;
+  g_mem.a = 1;
+  g_mem.b = 1;
+  g_mem.tol = 0.0001;
+  g_mem.Nstep = tmax / g_mem.dt;
+  for(int i = 0; i < NL_max - NL_min + 1; ++i) {
+    for(int j = 0; j < Ng_max; ++j) {
+      g_mem.All_sync_count1[i][j] = 0;
+    }
+    g_mem.All_sync_count2[i] = 0;
+  }
+  cudaMemcpy(&d_g_mem, &g_mem, sizeof(g_mem), cudaMemcpyHostToDevice);
+
+  // Initialize the parameters
+  simulation_params params[(NL_max - NL_min) * Ng_max * Nic / NL_step];
+  for(int iL = 0; iL <= (NL_max - NL_min) / NL_step; ++iL) {
+    for(int ig = 0; ig < Ng_max; ++ig) {
+      params[iL]
+    }
+  }
+
   return 0;
 }
