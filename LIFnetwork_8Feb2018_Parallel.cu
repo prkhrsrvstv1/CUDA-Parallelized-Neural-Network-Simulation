@@ -46,6 +46,7 @@ __global__ void store_weights(double w[(NL_max - NL_min) * Ng_max / NL_step][N][
   }
 }
 
+/* Run a simulation on a single thread */
 __global__ void simulate(simulation_params *params, simulation_result *results, global_mem *g_mem, double w[(NL_max - NL_min) * Ng_max / NL_step][N][N]) {
   // "threadId" is used as an index into the arrays "params" and "results".
   // Everything that was being written to a file is now returned in a struct.
@@ -197,6 +198,7 @@ __global__ void simulate(simulation_params *params, simulation_result *results, 
   }
 }
 
+/* Generate a adjacency matrix for a coonnected graph with nL edges missing */
 __device__ int synaptic_weights_connected_network(double w[][N], int nL) {
 
   int i,j,k,kk,neuron1,neuron2;
@@ -324,15 +326,13 @@ __device__ int synaptic_weights_connected_network(double w[][N], int nL) {
 }
 
 int main() {
-  
-  int num_simulations = (NL_max - NL_min) * Ng_max / NL_step * Nic;
+  int num_simulations = (NL_max - NL_min) / NL_step * Ng_max * Nic;
   int tmax = 20;
 
   // Initialize the weight matrices in the GPU memory
-  // void *w[(NL_max - NL_min) * Ng_max / NL_step][N][N];
-  void *w;
-  cudaMalloc(&w, (NL_max - NL_min) * Ng_max / NL_step * N * N * sizeof(double));
-  store_weights<<<1, (NL_max - NL_min) / NL_step>>>(w);
+  void *d_w;
+  cudaMalloc(&d_w, (NL_max - NL_min) * Ng_max / NL_step * N * N * sizeof(double));
+  store_weights<<<1, (NL_max - NL_min) / NL_step>>>(d_w);
 
   // Initialize the global GPU memory
   global_mem g_mem;
@@ -352,15 +352,71 @@ int main() {
     }
     g_mem.All_sync_count2[i] = 0;
   }
-  cudaMemcpy(&d_g_mem, &g_mem, sizeof(g_mem), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_g_mem, &g_mem, sizeof(g_mem), cudaMemcpyHostToDevice);
 
   // Initialize the parameters
-  simulation_params params[(NL_max - NL_min) * Ng_max * Nic / NL_step];
+  simulation_params params[num_simulations];
+  simulation_params *d_params;
+  cudaMalloc(&d_params, sizeof(params));
   for(int iL = 0; iL <= (NL_max - NL_min) / NL_step; ++iL) {
     for(int ig = 0; ig < Ng_max; ++ig) {
-      params[iL]
+      for(int ic = 0; ic < Nic; ++ic) {
+        params[iL][ig][ic].iL = iL;
+        params[iL][ig][ic].ig = ig;
+        params[iL][ig][ic].ic = ic;
+      }
     }
   }
+  cudaMemcpy(d_params, params, sizeof(params), cudaMemcpyHostToDevice);
+
+  // Perform checks (debug)
+  check_weights<<<1, 1>>>(d_params);
+  check_g_mem<<<1, 1>>>(d_g_mem);
+  check_params<<<1, 1>>>(d_params);
+
+  // Allocate memory for storing results
+  simulation_result results[num_simulations];
+  simulation_result *d_results;
+  cudaMalloc(&d_results, sizeof(results));
+  // Start all simulations simultaneously
+  simulate<<<1, num_simulations>>>(d_params, d_results, d_g_mem, d_w);
 
   return 0;
+}
+
+/* Check the weights on GPU memory */
+__global__ void check_weights(double w[(NL_max - NL_min) * Ng_max / NL_step][N][N]) {
+  int n = (NL_max - NL_min) * Ng_max / NL_step;
+  for(int i = 0; i < n; ++i) {
+    printf("\nnL = %d\tng = %d\n\t", i / Ng_max, i % Ng_max);
+    for(int j = 0; j < N; ++j) {
+      for(int k = 0; k < N; ++k) {
+        printf("%.0lf ");
+      }
+      printf("\n\t");
+    }
+  }
+}
+
+/* Check the global data on GPU memory */
+__global__ void check_g_mem(global_mem *g_mem) {
+  printf("dt = %lf\n", dt);
+  printf("epsilon = %lf\n", epsilon);
+  printf("vth = %lf\n", vth);
+  printf("vreset = %lf\n", vreset);
+  printf("a = %lf\n", a);
+  printf("b = %lf\n", b);
+  printf("tol = %lf\n", tol);
+  printf("\n");
+}
+
+/* Check the simulation parameters on GPU memory */
+__global__ void check_params(simulation_params *params) {
+  int n = (NL_max - NL_min) * Ng_max * Nic / NL_step;
+  for(int i = 0; i < n; ++i) {
+    printf("iL = %d\t", params[i].iL);
+    printf("ig = %d\t", params[i].ig);
+    printf("ic = %d\n", params[i].ic);
+  }
+  printf("\n");
 }
