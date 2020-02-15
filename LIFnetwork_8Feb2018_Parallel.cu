@@ -1,15 +1,14 @@
-#include <time.h>
+#include <cuda.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <cuda.h>
 #include <curand_kernel.h>
 
 #define N 5
 #define MAXCOL 10000
 #define Nic 1
 #define NL_min 0
-#define NL_max 1
+#define NL_max 3
 #define NL_step 1
 #define Ng_max 1
 #define N_THREADS_PER_BLOCK 1
@@ -24,8 +23,9 @@ typedef struct {
 
 typedef struct {
   int ic, iL, nL_break, ig;
+  int spike_count[N];
   double v_init[N];
-  double tspike[N][MAXCOL];
+  double tspike[N * MAXCOL];
 } simulation_result;
 
 /************************ DEBUG FUNCTIONS ************************/
@@ -214,7 +214,7 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
   int threadId = blockIdx.x * blockDim.x + threadIdx.x;
   // Initialize and seed the random number generator
   curandState rand_state;
-  curand_init(threadId, threadId, threadId, &rand_state);
+  curand_init(threadId, clock(), clock(), &rand_state);
 
   int ic = threadId % Nic;
   int ig = (threadId / Nic) % Ng_max;
@@ -226,7 +226,7 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
   results[threadId].nL_break = nL_break;
   
   int i, k, kk, InSync_neurons;
-  int spike_count[N], spike[N], push_up_flag[N];
+  int spike[N], push_up_flag[N];
   double f0, f1, f2, f3, tspike_diff1, tspike_diff2, t_old, t_new;
   double v_old[N], v_new[N], push_up_amnt[N];
   double v_initnew[20]= {0.00778832, 0.355919, 0.426307, 0.183062,
@@ -236,24 +236,23 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
                          0.5257, 0.127494, 0.716965, 0.151006};
 
   // Generate initial state
-  // for(kk = 0; kk < N; kk++) {
-  //   results[threadId].v_init[kk] = curand_uniform_double(&rand_state) * (g_mem->vth);
-  //   v_old[kk] = results[threadId].v_init[kk];
-  // }
-  
-  for(kk = 0; kk < N; kk++) {		
-    results[threadId].v_init[kk] = v_initnew[kk];
+  for(kk = 0; kk < N; kk++) {
+    results[threadId].v_init[kk] = curand_uniform_double(&rand_state) * (g_mem->vth);
     v_old[kk] = results[threadId].v_init[kk];
   }
+  // for(kk = 0; kk < N; kk++) {		
+  //   results[threadId].v_init[kk] = v_initnew[kk];
+  //   v_old[kk] = results[threadId].v_init[kk];
+  // }
 
   // initialize arrays
   for(k=0; k < N; k++) {
-    spike_count[k] = 0; //keeps a count of the number spikes in neuron k so far
+    results[threadId].spike_count[k] = 0; //keeps a count of the number spikes in neuron k so far
   }
 
   for(k = 0; k < N; k++) {
     for(i = 0; i < MAXCOL; i++) {
-      results[threadId].tspike[k][i] = 0; // counts the spike time of "i_th" spike of neuron number "k"
+      results[threadId].tspike[k * MAXCOL + i] = 0; // counts the spike time of "i_th" spike of neuron number "k"
     }
   }
 
@@ -267,9 +266,9 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
     for(kk = 0; kk < N; kk++) {
       if(v_old[kk] >= g_mem->vth) {
         spike[kk] = 1; // if neuron spiked
-        spike_count[kk]++ ;
-        results[threadId].tspike[kk][spike_count[kk]] = t_old;
-        printf("%lf\t", results[threadId].tspike[kk][spike_count[kk]]);
+        results[threadId].spike_count[kk]++ ;
+        results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]] = t_old;
+        // printf("%lf\n", results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]]);
       }
       else {	
         spike[kk] = 0; // if neuron did not spike
@@ -301,8 +300,9 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
           
           if(v_new[kk] >= g_mem->vth) {
             v_new[kk] = g_mem->vreset;
-            spike_count[kk]++;
-            results[threadId].tspike[kk][spike_count[kk]] = t_old;
+            results[threadId].spike_count[kk]++;
+            results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]] = t_old;
+            // printf("%lf\n", results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]]);
           }
 
         }
@@ -329,24 +329,15 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
 
   } // Time loop ends
 
-  for(int j = 0; j < N; ++j) {
-    for(int k = 0; k < MAXCOL; k += 1000) {
-      printf("%lf ", results[threadId].tspike[j][k]);
-    }
-    printf("\n\t");
-  }
-
   // Count number of iL-networks where all neurons fire in sync
-
   InSync_neurons = 1;
   for(kk = 1; kk < N; kk++) {
     // TOASK: What are these "10" and "11"?
-    tspike_diff1 = fabs(results[threadId].tspike[0][spike_count[0] - 11] -
-                        results[threadId].tspike[kk][spike_count[kk] - 11]);
-    tspike_diff2 = fabs(results[threadId].tspike[0][spike_count[0] - 10] -
-                        results[threadId].tspike[kk][spike_count[kk] - 10]);
+    tspike_diff1 = fabs(results[threadId].tspike[0 * MAXCOL + results[threadId].spike_count[0] - 11] -
+                        results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk] - 11]);
+    tspike_diff2 = fabs(results[threadId].tspike[0 * MAXCOL + results[threadId].spike_count[0] - 10] -
+                        results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk] - 10]);
     if(tspike_diff1 < g_mem->tol && tspike_diff2 < g_mem->tol) {
-      printf("neuron in-sync\t");
       InSync_neurons++; // count number of neurons firing in sync for the chosen initial condition
     }
   }
@@ -360,13 +351,13 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
   // TOASK: What is happening here?
   // Write spike time on file
   /*for(kk=0;kk<N;kk++) {
-    tmp1 = 10000*results[threadId].tspike[kk][spike_count[kk]-7];
-    tmp2 = 10000*results[threadId].tspike[kk][spike_count[kk]-8];
-    tmp3 = 10000*results[threadId].tspike[kk][spike_count[kk]-9];
-    tmp4 = 10000*results[threadId].tspike[kk][spike_count[kk]-10];
-    tmp5 = 10000*results[threadId].tspike[kk][spike_count[kk]-11];
-    tmp6 = 10000*results[threadId].tspike[kk][spike_count[kk]-12];
-    tmp7 = 10000*results[threadId].tspike[kk][spike_count[kk]-13];
+    tmp1 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-7];
+    tmp2 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-8];
+    tmp3 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-9];
+    tmp4 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-10];
+    tmp5 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-11];
+    tmp6 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-12];
+    tmp7 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-13];
   //fprintf(spike_time,"%d \t %lu \t %lu \t %lu \t %lu \t %lu \t \%d \n",kk,tmp1,tmp2,tmp3,tmp4,tmp5,flag_unconnctd_graph);
                       //fprintf(spike_time,"%d \t %lu \t %lu \t %lu \t %lu \t %lu \t %lu \t %lu \n",kk,tmp1,tmp2,tmp3,tmp4,tmp5,tmp6,tmp7);
   }*/
@@ -381,7 +372,7 @@ int main() {
   void *d_w;
   cudaMalloc(&d_w, (NL_max - NL_min) * Ng_max / NL_step * N * N * sizeof(double));
   store_weights<<<1, (NL_max - NL_min) / NL_step>>>((double (*)[N][N])d_w);
-  check_weights<<<1, 1>>>((double (*)[N][N])d_w);
+  // check_weights<<<1, 1>>>((double (*)[N][N])d_w);
 
   // Initialize the global GPU memory
   global_mem g_mem;
@@ -395,14 +386,14 @@ int main() {
   g_mem.b = 1;
   g_mem.tol = 0.0001;
   g_mem.Nstep = tmax / g_mem.dt;
-  for(int i = 0; i < NL_max - NL_min + 1; ++i) {
+  for(int i = 0; i < NL_max - NL_min; ++i) {
     for(int j = 0; j < Ng_max; ++j) {
       g_mem.All_sync_count1[i][j] = 0;
     }
     g_mem.All_sync_count2[i] = 0;
   }
   cudaMemcpy(d_g_mem, &g_mem, sizeof(g_mem), cudaMemcpyHostToDevice);
-  check_g_mem<<<1, 1>>>(d_g_mem);
+  // check_g_mem<<<1, 1>>>(d_g_mem);
 
   // Allocate memory for storing results
   simulation_result results[num_simulations];
@@ -411,6 +402,7 @@ int main() {
   // Start all simulations simultaneously
   simulate<<<1, num_simulations>>>(d_results, d_g_mem, (double (*)[N][N])d_w);
   cudaMemcpy(results, d_results, sizeof(results), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&g_mem, d_g_mem, sizeof(g_mem), cudaMemcpyDeviceToHost);
   for(int i = 0; i < num_simulations; ++i) {
     int ic = i % Nic;
     int ig = (i / Nic) % Ng_max;
@@ -418,14 +410,14 @@ int main() {
     int nL_break = NL_min + iL * NL_step;  
     printf("\n\n\n\nnL_break = %d\tig = %d\tic = %d:\n\t", nL_break, ig, ic);
     for(int j = 0; j < N; ++j)
-      printf("%.3lf ", results[i].v_init[j]);
-    // printf("\n\n\t");
-    // for(int j = 0; j < N; ++j) {
-    //   for(int k = 0; k < MAXCOL; k += 1000) {
-    //     printf("%lf ", results[i].tspike[j][k]);
-    //   }
-    //   printf("\n\t");
-    // }
+      printf("%lf\t", results[i].v_init[j]);
+    printf("\nAll_sync_count2[%d] : %d\n\n\t", iL, g_mem.All_sync_count2[iL]);
+    for(int j = 0; j < N; ++j) {
+      for(int k = 1; k <= results[i].spike_count[j]; ++k) {
+        printf("%lf ", results[i].tspike[j * MAXCOL + k]);
+      }
+      printf("\n\t");
+    }
   }
 
   printf("\n");
