@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "Create_Connected_Network.c"
 // ************************************************************************************************************************
 // Time advance LIF neurons on the network. The network is constructed here.
 //Construct a Raster plot of firing of all neurons.
