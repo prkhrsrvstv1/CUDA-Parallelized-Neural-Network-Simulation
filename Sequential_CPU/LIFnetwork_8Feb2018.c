@@ -9,10 +9,10 @@
 
 //int tot_syn(int n);
 
-#define N 20
-#define MAXCOL 10000
+#define N 36
+#define MAXCOL 100
 #define NL_min 0
-#define NL_max 0
+#define NL_max 2
 #define NL_step 1
 #define Ng_max 1
 

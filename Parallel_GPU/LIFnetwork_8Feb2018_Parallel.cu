@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <curand_kernel.h>
 
-#define N 5
-#define MAXCOL 10000
+#define N 36
+#define MAXCOL 100
 #define Nic 1
 #define NL_min 0
 #define NL_max 3
@@ -410,7 +410,7 @@ int main() {
     int nL_break = NL_min + iL * NL_step;  
     printf("\n\n\n\nnL_break = %d\tig = %d\tic = %d:\n\t", nL_break, ig, ic);
     for(int j = 0; j < N; ++j)
-      printf("%lf\t", results[i].v_init[j]);
+      printf("%lf ", results[i].v_init[j]);
     printf("\nAll_sync_count2[%d] : %d\n\n\t", iL, g_mem.All_sync_count2[iL]);
     for(int j = 0; j < N; ++j) {
       for(int k = 1; k <= results[i].spike_count[j]; ++k) {
