@@ -111,33 +111,7 @@ __device__ unsigned short synaptic_weights_connected_network(double w[][N], unsi
     }
   }
 
-
-  // Is the network generated above connected ? /////////////
-
-
-  //w[0][0] = 0; w[0][1] = 1; w[0][2] = 1; w[0][3] = 0; w[0][4] = 1; w[0][5] = 0;
-
-  //w[1][0] = w[0][1]; w[1][1] = 0; w[1][2] = 1; w[1][3] = 0; w[1][4] = 0; w[1][5] = 1;
-
-  //w[2][0] = w[0][2]; w[2][1] = w[1][2]; w[2][2] = 0; w[2][3] = 0; w[2][4] = 1; w[2][5] = 0;
-
-  //w[3][0] = w[0][3]; w[3][1] = w[1][3]; w[3][2] = w[2][3]; w[3][3] = 0; w[3][4] = 0; w[3][5] = 0;
-
-  //w[4][0] = w[0][4]; w[4][1] = w[1][4]; w[4][2] = w[2][4]; w[4][3] = w[3][4]; w[4][4] = 0; w[4][5] = 1;
-
-  //w[5][0] = w[0][5]; w[5][1] = w[1][5]; w[5][2] = w[2][5]; w[5][3] = w[3][5]; w[5][4] = w[4][5]; w[5][5] = 0;
-
-  //w[0][0] = 0; w[0][1] = 0; w[0][2] = 1; w[0][3]=0;
-  //w[1][0] = w[0][1]; w[1][1] = 0;  w[1][2] = 1; w[1][3] =0;
-  //w[2][0]=w[0][2]; w[2][1]=w[1][2]; w[2][2] =0; w[2][3] = 1;
-  //w[3][0] = w[0][3]; w[3][1] = w[1][3]; w[3][2] = w[2][3]; w[3][3]=0;
-
-  // for(k = 0; k < N; k++) {
-  //   for(kk = 0; kk < N; kk++) {
-  //     w_flag[k][kk] = 0; // w_flag[k][kk] is changed to value 1, if the synapse between k --> kk is removed
-  //   }
-  // }
-
+  /* Check the connectivity */
   connected_nodes[0] = 0;
   for(i=1;i<N;i++) {
     connected_nodes[i] = -1;
@@ -241,11 +215,7 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
     results[threadId].v_init[kk] = curand_uniform_double(&rand_state) * (vth);
     v_old[kk] = results[threadId].v_init[kk];
   }
-  // for(kk = 0; kk < N; kk++) {
-  //   results[threadId].v_init[kk] = v_initnew[kk];
-  //   v_old[kk] = results[threadId].v_init[kk];
-  // }
-
+  
   // initialize arrays
   memset(results[threadId].spike_count, 0, N * sizeof(unsigned short));
   memset(results[threadId].tspike, 0, N * MAXCOL * sizeof(double));
@@ -264,7 +234,6 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
         spike[kk] = 1; // if neuron spiked
         results[threadId].spike_count[kk]++;
         results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]] = t_old;
-        // printf("%f\n", results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]]);
       }
       else {
         spike[kk] = 0; // if neuron did not spike
@@ -293,7 +262,6 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
             v_new[kk] = vreset;
             results[threadId].spike_count[kk]++;
             results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]] = t_old;
-            // printf("%f\n", results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]]);
           }
 
         }
@@ -352,7 +320,6 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
   // Count number of iL-networks where all neurons fire in sync
   InSync_neurons = 1;
   for(kk = 1; kk < N; kk++) {
-    // TOASK: What are these "10" and "11"?
     tspike_diff1 = fabs(results[threadId].tspike[0 * MAXCOL + results[threadId].spike_count[0] - 11] -
                         results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk] - 11]);
     tspike_diff2 = fabs(results[threadId].tspike[0 * MAXCOL + results[threadId].spike_count[0] - 10] -
@@ -362,10 +329,8 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
     }
   }
   if(InSync_neurons == N) {
-    //g_mem->All_sync_count1[iL][ig]++; // count number of ic's that yield All-sync for iL-iG network.
+    g_mem->All_sync_count1[iL][ig]++;
     g_mem->All_sync_count2[iL]++;
-    //printf("Number of instances of full sync = %d \n",All_sync_count2[iL]);
-    //fprintf(all_sync,"Number of instances of full sync = %d \n",All_sync_count2[0]);
   }
 
   // TOASK: What is happening here?
