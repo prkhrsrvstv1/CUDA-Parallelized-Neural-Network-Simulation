@@ -61,18 +61,8 @@ __global__ void check_g_mem(global_mem *g_mem) {
 /*******************************************************************/
 
 
-<<<<<<< HEAD
 /* Generate a adjacency matrix for a coonnected graph with nL edges missing */
 __device__ unsigned short synaptic_weights_connected_network(double w[][N], unsigned short nL, curandState *rand_state) {
-=======
-<<<<<<< HEAD
-/* Generate a adjacency matrix for a coonnected graph with nL edges missing */
-__device__ unsigned short synaptic_weights_connected_network(double w[][N], unsigned short nL, curandState *rand_state) {
-=======
-/* Generate a adjacency matrix for a connected graph with nL edges missing */
-__device__ int synaptic_weights_connected_network(double w[][N], int nL, curandState *rand_state) {
->>>>>>> 626df0d1c4f58f6d4857f8d67cd620c8e7aec0d6
->>>>>>> 4bd11b98daf3515bf171758bc5a4403d0514455a
 
   unsigned short i,j,k,kk,neuron1,neuron2;
   double w_flag[N][N];
@@ -121,7 +111,6 @@ __device__ int synaptic_weights_connected_network(double w[][N], int nL, curandS
     }
   }
 
-<<<<<<< HEAD
 
   // Is the network generated above connected ? /////////////
 
@@ -149,9 +138,6 @@ __device__ int synaptic_weights_connected_network(double w[][N], int nL, curandS
   //   }
   // }
 
-=======
-  /* Check the connectivity */
->>>>>>> 626df0d1c4f58f6d4857f8d67cd620c8e7aec0d6
   connected_nodes[0] = 0;
   for(i=1;i<N;i++) {
     connected_nodes[i] = -1;
@@ -255,15 +241,11 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
     results[threadId].v_init[kk] = curand_uniform_double(&rand_state) * (vth);
     v_old[kk] = results[threadId].v_init[kk];
   }
-<<<<<<< HEAD
   // for(kk = 0; kk < N; kk++) {
   //   results[threadId].v_init[kk] = v_initnew[kk];
   //   v_old[kk] = results[threadId].v_init[kk];
   // }
 
-=======
-  
->>>>>>> 626df0d1c4f58f6d4857f8d67cd620c8e7aec0d6
   // initialize arrays
   memset(results[threadId].spike_count, 0, N * sizeof(unsigned short));
   memset(results[threadId].tspike, 0, N * MAXCOL * sizeof(double));
@@ -282,10 +264,7 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
         spike[kk] = 1; // if neuron spiked
         results[threadId].spike_count[kk]++;
         results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]] = t_old;
-<<<<<<< HEAD
         // printf("%f\n", results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]]);
-=======
->>>>>>> 626df0d1c4f58f6d4857f8d67cd620c8e7aec0d6
       }
       else {
         spike[kk] = 0; // if neuron did not spike
@@ -314,10 +293,7 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
             v_new[kk] = vreset;
             results[threadId].spike_count[kk]++;
             results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]] = t_old;
-<<<<<<< HEAD
             // printf("%f\n", results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]]);
-=======
->>>>>>> 626df0d1c4f58f6d4857f8d67cd620c8e7aec0d6
           }
 
         }
@@ -376,6 +352,7 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
   // Count number of iL-networks where all neurons fire in sync
   InSync_neurons = 1;
   for(kk = 1; kk < N; kk++) {
+    // TOASK: What are these "10" and "11"?
     tspike_diff1 = fabs(results[threadId].tspike[0 * MAXCOL + results[threadId].spike_count[0] - 11] -
                         results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk] - 11]);
     tspike_diff2 = fabs(results[threadId].tspike[0 * MAXCOL + results[threadId].spike_count[0] - 10] -
@@ -385,10 +362,25 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
     }
   }
   if(InSync_neurons == N) {
-    g_mem->All_sync_count1[iL][ig]++;
+    //g_mem->All_sync_count1[iL][ig]++; // count number of ic's that yield All-sync for iL-iG network.
     g_mem->All_sync_count2[iL]++;
+    //printf("Number of instances of full sync = %d \n",All_sync_count2[iL]);
+    //fprintf(all_sync,"Number of instances of full sync = %d \n",All_sync_count2[0]);
   }
-  
+
+  // TOASK: What is happening here?
+  // Write spike time on file
+  /*for(kk=0;kk<N;kk++) {
+    tmp1 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-7];
+    tmp2 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-8];
+    tmp3 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-9];
+    tmp4 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-10];
+    tmp5 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-11];
+    tmp6 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-12];
+    tmp7 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-13];
+  //fprintf(spike_time,"%d \t %lu \t %lu \t %lu \t %lu \t %lu \t \%d \n",kk,tmp1,tmp2,tmp3,tmp4,tmp5,flag_unconnctd_graph);
+                      //fprintf(spike_time,"%d \t %lu \t %lu \t %lu \t %lu \t %lu \t %lu \t %lu \n",kk,tmp1,tmp2,tmp3,tmp4,tmp5,tmp6,tmp7);
+  }*/
   printf("Thread #%d finished\n", threadId);
 }
 
