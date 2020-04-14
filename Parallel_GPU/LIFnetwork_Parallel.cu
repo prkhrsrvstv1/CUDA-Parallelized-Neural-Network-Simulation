@@ -61,8 +61,18 @@ __global__ void check_g_mem(global_mem *g_mem) {
 /*******************************************************************/
 
 
+<<<<<<< HEAD
 /* Generate a adjacency matrix for a coonnected graph with nL edges missing */
 __device__ unsigned short synaptic_weights_connected_network(double w[][N], unsigned short nL, curandState *rand_state) {
+=======
+<<<<<<< HEAD
+/* Generate a adjacency matrix for a coonnected graph with nL edges missing */
+__device__ unsigned short synaptic_weights_connected_network(double w[][N], unsigned short nL, curandState *rand_state) {
+=======
+/* Generate a adjacency matrix for a connected graph with nL edges missing */
+__device__ int synaptic_weights_connected_network(double w[][N], int nL, curandState *rand_state) {
+>>>>>>> 626df0d1c4f58f6d4857f8d67cd620c8e7aec0d6
+>>>>>>> 4bd11b98daf3515bf171758bc5a4403d0514455a
 
   unsigned short i,j,k,kk,neuron1,neuron2;
   double w_flag[N][N];
@@ -111,7 +121,37 @@ __device__ unsigned short synaptic_weights_connected_network(double w[][N], unsi
     }
   }
 
+<<<<<<< HEAD
+
+  // Is the network generated above connected ? /////////////
+
+
+  //w[0][0] = 0; w[0][1] = 1; w[0][2] = 1; w[0][3] = 0; w[0][4] = 1; w[0][5] = 0;
+
+  //w[1][0] = w[0][1]; w[1][1] = 0; w[1][2] = 1; w[1][3] = 0; w[1][4] = 0; w[1][5] = 1;
+
+  //w[2][0] = w[0][2]; w[2][1] = w[1][2]; w[2][2] = 0; w[2][3] = 0; w[2][4] = 1; w[2][5] = 0;
+
+  //w[3][0] = w[0][3]; w[3][1] = w[1][3]; w[3][2] = w[2][3]; w[3][3] = 0; w[3][4] = 0; w[3][5] = 0;
+
+  //w[4][0] = w[0][4]; w[4][1] = w[1][4]; w[4][2] = w[2][4]; w[4][3] = w[3][4]; w[4][4] = 0; w[4][5] = 1;
+
+  //w[5][0] = w[0][5]; w[5][1] = w[1][5]; w[5][2] = w[2][5]; w[5][3] = w[3][5]; w[5][4] = w[4][5]; w[5][5] = 0;
+
+  //w[0][0] = 0; w[0][1] = 0; w[0][2] = 1; w[0][3]=0;
+  //w[1][0] = w[0][1]; w[1][1] = 0;  w[1][2] = 1; w[1][3] =0;
+  //w[2][0]=w[0][2]; w[2][1]=w[1][2]; w[2][2] =0; w[2][3] = 1;
+  //w[3][0] = w[0][3]; w[3][1] = w[1][3]; w[3][2] = w[2][3]; w[3][3]=0;
+
+  // for(k = 0; k < N; k++) {
+  //   for(kk = 0; kk < N; kk++) {
+  //     w_flag[k][kk] = 0; // w_flag[k][kk] is changed to value 1, if the synapse between k --> kk is removed
+  //   }
+  // }
+
+=======
   /* Check the connectivity */
+>>>>>>> 626df0d1c4f58f6d4857f8d67cd620c8e7aec0d6
   connected_nodes[0] = 0;
   for(i=1;i<N;i++) {
     connected_nodes[i] = -1;
@@ -215,7 +255,15 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
     results[threadId].v_init[kk] = curand_uniform_double(&rand_state) * (vth);
     v_old[kk] = results[threadId].v_init[kk];
   }
+<<<<<<< HEAD
+  // for(kk = 0; kk < N; kk++) {
+  //   results[threadId].v_init[kk] = v_initnew[kk];
+  //   v_old[kk] = results[threadId].v_init[kk];
+  // }
+
+=======
   
+>>>>>>> 626df0d1c4f58f6d4857f8d67cd620c8e7aec0d6
   // initialize arrays
   memset(results[threadId].spike_count, 0, N * sizeof(unsigned short));
   memset(results[threadId].tspike, 0, N * MAXCOL * sizeof(double));
@@ -234,6 +282,10 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
         spike[kk] = 1; // if neuron spiked
         results[threadId].spike_count[kk]++;
         results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]] = t_old;
+<<<<<<< HEAD
+        // printf("%f\n", results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]]);
+=======
+>>>>>>> 626df0d1c4f58f6d4857f8d67cd620c8e7aec0d6
       }
       else {
         spike[kk] = 0; // if neuron did not spike
@@ -262,6 +314,10 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
             v_new[kk] = vreset;
             results[threadId].spike_count[kk]++;
             results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]] = t_old;
+<<<<<<< HEAD
+            // printf("%f\n", results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]]);
+=======
+>>>>>>> 626df0d1c4f58f6d4857f8d67cd620c8e7aec0d6
           }
 
         }
@@ -332,20 +388,7 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
     g_mem->All_sync_count1[iL][ig]++;
     g_mem->All_sync_count2[iL]++;
   }
-
-  // TOASK: What is happening here?
-  // Write spike time on file
-  /*for(kk=0;kk<N;kk++) {
-    tmp1 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-7];
-    tmp2 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-8];
-    tmp3 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-9];
-    tmp4 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-10];
-    tmp5 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-11];
-    tmp6 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-12];
-    tmp7 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-13];
-  //fprintf(spike_time,"%d \t %lu \t %lu \t %lu \t %lu \t %lu \t \%d \n",kk,tmp1,tmp2,tmp3,tmp4,tmp5,flag_unconnctd_graph);
-                      //fprintf(spike_time,"%d \t %lu \t %lu \t %lu \t %lu \t %lu \t %lu \t %lu \n",kk,tmp1,tmp2,tmp3,tmp4,tmp5,tmp6,tmp7);
-  }*/
+  
   printf("Thread #%d finished\n", threadId);
 }
 
