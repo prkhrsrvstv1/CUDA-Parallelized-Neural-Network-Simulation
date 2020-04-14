@@ -202,8 +202,6 @@ __global__ void store_weights(double w[(NL_max - NL_min) / NL_step * Ng_max][N][
 
 /* Run a simulation on a single thread */
 __global__ void simulate(simulation_result *results, global_mem *g_mem, double w[(NL_max - NL_min) / NL_step * Ng_max][N][N]) {
-  // "threadId" is used as an index into the array "results".
-  // Everything that was being written to a file is now returned in a struct.
   unsigned short threadId = blockIdx.x * blockDim.x + threadIdx.x;
   // Initialize and seed the random number generator
   curandState rand_state;
@@ -264,18 +262,12 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
         spike[kk] = 1; // if neuron spiked
         results[threadId].spike_count[kk]++;
         results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]] = t_old;
-        // printf("%f\n", results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]]);
       }
       else {
         spike[kk] = 0; // if neuron did not spike
       }
     }
 
-    // Find voltage push-up amount for each neuron (if atleast one neuron other than itself spiked)
-    // for(kk = 0; kk < N; kk++) {
-    //   push_up_amnt[kk] = 0; // initialize these arrays at every time step
-    //   push_up_flag[kk] = 0;
-    // }
     for(kk = 0; kk < N; kk++) {
       for(k = 0; k < N; k++) {
         if(k != kk && spike[kk] != 1 && spike[k]==1) {
@@ -293,7 +285,6 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
             v_new[kk] = vreset;
             results[threadId].spike_count[kk]++;
             results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]] = t_old;
-            // printf("%f\n", results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]]);
           }
 
         }
@@ -312,38 +303,6 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
       v_old[kk] = v_new[kk];
     }
 
-    // Finally update voltages of each neuron - using Euler method if no neuron fired & by pushing up the
-    // voltage value by push_up_amnt if some neurons fired.
-    // for(kk = 0; kk < N; kk++) {
-    //   if(v_old[kk] < vth) {
-    //     if(push_up_flag[kk] == 1) {
-
-    //       v_new[kk] = v_old[kk] + push_up_amnt[kk];
-
-    //       if(v_new[kk] >= vth) {
-    //         v_new[kk] = vreset;
-    //         results[threadId].spike_count[kk]++;
-    //         results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]] = t_old;
-    //         // printf("%f\n", results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]]);
-    //       }
-
-    //     }
-    //     else if(push_up_flag[kk] == 0) {
-    //       f0 = a - b * v_old[kk];
-    //       f1 = a - b * (v_old[kk] + f0 * 0.5 * dt);
-    //       f2 = a - b * (v_old[kk] + f1 * 0.5 * dt);
-    //       f3 = a - b * (v_old[kk] + f2 * dt);
-    //       v_new[kk] = v_old[kk] + dt * (f0 + 2 * f1 + 2 * f2 + f3) / 6;
-    //     }
-    //   }
-    //   else if (v_old[kk] >= vth) {
-    //     v_new[kk] = vreset;
-    //   }
-    //   // swap v_old & v_new for next time iteration
-    //   v_old[kk] = v_new[kk];
-    // }
-
-
     // Advance time
     t_old = t_new;
 
@@ -352,7 +311,6 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
   // Count number of iL-networks where all neurons fire in sync
   InSync_neurons = 1;
   for(kk = 1; kk < N; kk++) {
-    // TOASK: What are these "10" and "11"?
     tspike_diff1 = fabs(results[threadId].tspike[0 * MAXCOL + results[threadId].spike_count[0] - 11] -
                         results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk] - 11]);
     tspike_diff2 = fabs(results[threadId].tspike[0 * MAXCOL + results[threadId].spike_count[0] - 10] -
@@ -368,7 +326,6 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
     //fprintf(all_sync,"Number of instances of full sync = %d \n",All_sync_count2[0]);
   }
 
-  // TOASK: What is happening here?
   // Write spike time on file
   /*for(kk=0;kk<N;kk++) {
     tmp1 = 10000*results[threadId].tspike[kk * MAXCOL + results[threadId].spike_count[kk]-7];
