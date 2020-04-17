@@ -12,8 +12,6 @@
 #define NL_max 70
 #define NL_step 1
 #define Ng_max 10
-#define N_THREADS_PER_BLOCK 35
-#define N_BLOCKS 100
 #define FILENAME "results.txt"
 
 
@@ -203,6 +201,11 @@ __global__ void store_weights(double w[(NL_max - NL_min) / NL_step * Ng_max][N][
 /* Run a simulation on a single thread */
 __global__ void simulate(simulation_result *results, global_mem *g_mem, double w[(NL_max - NL_min) / NL_step * Ng_max][N][N]) {
   unsigned short threadId = blockIdx.x * blockDim.x + threadIdx.x;
+  unsigned short num_simulations = (NL_max - NL_min) / NL_step * Ng_max * Nic;
+  // Check if this thread a valid one
+  if(threadId >= num_simulations) {
+    return;
+  }
   // Initialize and seed the random number generator
   curandState rand_state;
   curand_init(threadId, clock(), clock(), &rand_state);
@@ -338,7 +341,7 @@ __global__ void simulate(simulation_result *results, global_mem *g_mem, double w
   //fprintf(spike_time,"%d \t %lu \t %lu \t %lu \t %lu \t %lu \t \%d \n",kk,tmp1,tmp2,tmp3,tmp4,tmp5,flag_unconnctd_graph);
                       //fprintf(spike_time,"%d \t %lu \t %lu \t %lu \t %lu \t %lu \t %lu \t %lu \n",kk,tmp1,tmp2,tmp3,tmp4,tmp5,tmp6,tmp7);
   }*/
-  printf("Thread #%d finished\n", threadId);
+  printf("Thread #%d finished with tmax = %lf\n", threadId, t_old);
 }
 
 
@@ -371,8 +374,13 @@ int main() {
   simulation_result *d_results;
   cudaMalloc(&d_results, sizeof(simulation_result) * num_simulations);
   
+  // Get optimal grid and block dimensions
+  int grid_size, block_size;
+  cudaOccupancyMaxPotentialBlockSize(&grid_size, &block_size, simulate, 0, num_simulations);
+  printf("Number of blocks = %d, Number of threads in a block = %d\n", grid_size, block_size);
+
   // Start all simulations simultaneously
-  simulate<<<N_BLOCKS, N_THREADS_PER_BLOCK>>>(d_results, d_g_mem, (double (*)[N][N])d_w);
+  simulate<<<grid_size, block_size>>>(d_results, d_g_mem, (double (*)[N][N])d_w);
   
   // Retrieve the results back from GPU
   cudaMemcpy(results, d_results, sizeof(simulation_result) * num_simulations, cudaMemcpyDeviceToHost);
