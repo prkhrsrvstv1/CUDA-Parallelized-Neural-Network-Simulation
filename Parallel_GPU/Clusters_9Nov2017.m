@@ -24,13 +24,13 @@ n_spikes = 7;
 
 
 % open files
-fileID = fopen('/home/gaurav-dar/Documents/MATLAB/17Oct2017/fspike_time.txt','r');
-num_dyn_clstrID = fopen('/home/gaurav-dar/Documents/MATLAB/17Oct2017/fnum_dyn_clstr.txt','w');
-size_lrgst_dyn_clstrID = fopen('/home/gaurav-dar/Documents/MATLAB/17Oct2017/fsize_lrgst_dyn_clstr.txt','w');
-nrnID_frzn_clusterID = fopen('/home/gaurav-dar/Documents/MATLAB/17Oct2017/fnrnID_frzn_cluster.txt','w');
-num_frzn_clstrID = fopen('/home/gaurav-dar/Documents/MATLAB/17Oct2017/fnum_frzn_clstr.txt','w');
-size_frzn_clstrID = fopen('/home/gaurav-dar/Documents/MATLAB/17Oct2017/fsize_frzn_clstr.txt','w');
-size_lrgst_frzn_clstrID = fopen('/home/gaurav-dar/Documents/MATLAB/17Oct2017/fsize_lrgst_frzn_clstr.txt','w');
+fileID = fopen('fspike_time.txt','r');
+num_dyn_clstrID = fopen('fnum_dyn_clstr.txt','w');
+size_lrgst_dyn_clstrID = fopen('fsize_lrgst_dyn_clstr.txt','w');
+nrnID_frzn_clusterID = fopen('fnrnID_frzn_cluster.txt','w');
+num_frzn_clstrID = fopen('fnum_frzn_clstr.txt','w');
+size_frzn_clstrID = fopen('fsize_frzn_clstr.txt','w');
+size_lrgst_frzn_clstrID = fopen('fsize_lrgst_frzn_clstr.txt','w');
 
 % files - put labels on each column
 fprintf(num_dyn_clstrID,'# nL \t ng \t nic \t  num_clstr \t num_clstr \n');

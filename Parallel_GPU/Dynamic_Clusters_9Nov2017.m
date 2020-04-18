@@ -24,9 +24,9 @@ n_spikes = 7;
 
 
 % open files
-fileID = fopen('/home/gaurav-dar/Documents/MATLAB/17Oct2017/fspike_time.txt','r');
-num_dyn_clstrID = fopen('/home/gaurav-dar/Documents/MATLAB/17Oct2017/fnum_dyn_clstr.txt','w');
-size_lrgst_dyn_clstrID = fopen('/home/gaurav-dar/Documents/MATLAB/17Oct2017/fsize_lrgst_dyn_clstr.txt','w');
+fileID = fopen('fspike_time.txt','r');
+num_dyn_clstrID = fopen('fnum_dyn_clstr.txt','w');
+size_lrgst_dyn_clstrID = fopen('fsize_lrgst_dyn_clstr.txt','w');
 
 % files - put labels on each column
 fprintf(num_dyn_clstrID,'# nL \t ng \t nic \t  num_clstr \t num_clstr \n');

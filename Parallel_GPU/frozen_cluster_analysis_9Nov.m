@@ -20,7 +20,7 @@ NL_min = 1;
 Ngmax = [50 50 50 200 200 600 600 900 1300 1000 1000 1000];
 Nic =50;
 
-size_frzn_clstrID = fopen('/home/gaurav-dar/Documents/MATLAB/17Oct2017/fsize_frzn_clstr.txt','r');
+size_frzn_clstrID = fopen('fsize_frzn_clstr.txt','r');
 
 %unq_clstr_sz_arrayID = fopen('/home/gaurav-dar/Documents/MATLAB/funq_clstr_sz_array.txt','w');
 
@@ -141,9 +141,9 @@ hist_clstr_sizes;
 sz_mode;
 frq_sz_mode;
 
-dlmwrite('/home/gaurav-dar/Documents/MATLAB/17Oct2017/ffrzn_unq_clstr_sz_array.txt',unq_clstr_sz_array,'delimiter','\t');
-dlmwrite('/home/gaurav-dar/Documents/MATLAB/17Oct2017/ffrzn_hist_clstr_sizes.txt',hist_clstr_sizes,'delimiter','\t')
-dlmwrite('/home/gaurav-dar/Documents/MATLAB/17Oct2017/ffrzn_sz_mode.txt',sz_mode,'delimiter','\t')
-dlmwrite('/home/gaurav-dar/Documents/MATLAB/17Oct2017/ffrzn_frq_sz_mode.txt',frq_sz_mode,'delimiter','\t')
+dlmwrite('ffrzn_unq_clstr_sz_array.txt',unq_clstr_sz_array,'delimiter','\t');
+dlmwrite('ffrzn_hist_clstr_sizes.txt',hist_clstr_sizes,'delimiter','\t')
+dlmwrite('ffrzn_sz_mode.txt',sz_mode,'delimiter','\t')
+dlmwrite('ffrzn_frq_sz_mode.txt',frq_sz_mode,'delimiter','\t')
 
 toc
