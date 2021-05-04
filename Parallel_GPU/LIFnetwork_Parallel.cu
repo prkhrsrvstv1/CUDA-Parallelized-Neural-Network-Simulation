@@ -59,7 +59,7 @@ __global__ void check_g_mem(global_mem *g_mem) {
 /*******************************************************************/
 
 
-/* Generate a adjacency matrix for a coonnected graph with nL edges missing */
+/* Generate a adjacency matrix for a connected graph with nL edges missing */
 __device__ unsigned short synaptic_weights_connected_network(double w[][N], unsigned short nL, curandState *rand_state) {
 
   unsigned short i,j,k,kk,neuron1,neuron2;
